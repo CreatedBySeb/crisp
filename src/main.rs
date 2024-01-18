@@ -137,6 +137,62 @@ fn main() {
                 registers[0xf] = overflow.into();
             }
 
+            0x8 => match N {
+                0x0 => {
+                    registers[X as usize] = registers[Y as usize];
+                }
+
+                0x1 => {
+                    registers[X as usize] |= registers[Y as usize];
+                }
+
+                0x2 => {
+                    registers[X as usize] &= registers[Y as usize];
+                }
+
+                0x3 => {
+                    registers[X as usize] ^= registers[Y as usize];
+                }
+
+                0x4 => {
+                    let (new_value, overflow) =
+                        registers[X as usize].overflowing_add(registers[Y as usize]);
+
+                    registers[X as usize] = new_value;
+                    registers[0xf] = overflow.into();
+                }
+
+                0x5 => {
+                    let (new_value, overflow) =
+                        registers[X as usize].overflowing_sub(registers[Y as usize]);
+
+                    registers[X as usize] = new_value;
+                    registers[0xf] = (!overflow).into();
+                }
+
+                0x6 => {
+                    registers[0xf] = registers[X as usize] & 1;
+                    registers[X as usize] >>= 1;
+                }
+
+                0x7 => {
+                    let (new_value, overflow) =
+                        registers[Y as usize].overflowing_sub(registers[X as usize]);
+
+                    registers[X as usize] = new_value;
+                    registers[0xf] = (!overflow).into();
+                }
+
+                0xe => {
+                    registers[0xf] = (registers[X as usize].leading_ones() > 0).into();
+                    registers[X as usize] <<= 1;
+                }
+
+                _ => {
+                    panic!("N is invalid ({:x})", N);
+                }
+            },
+
             0x9 => {
                 if registers[X as usize] != registers[Y as usize] {
                     pc += 2;
