@@ -2,6 +2,7 @@ extern crate sdl2;
 
 mod font;
 
+use getrandom::getrandom;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -208,6 +209,12 @@ fn main() {
 
             0xa => {
                 index = (usize::from(X) << 8) + usize::from(bytes[1]);
+            }
+
+            0xc => {
+                let mut value: [u8; 1] = [0];
+                getrandom(&mut value).ok();
+                registers[X as usize] = value[0] & bytes[1];
             }
 
             0xd => {
