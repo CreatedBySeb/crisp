@@ -1,5 +1,7 @@
 extern crate sdl2;
 
+mod font;
+
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -7,6 +9,9 @@ use sdl2::rect::Rect;
 use std::env;
 use std::fs;
 use std::time::Duration;
+
+use crate::font::get_char_address;
+use crate::font::load_font;
 
 const PROGRAM_OFFSET: usize = 0x200;
 const MEMORY_SIZE: usize = 4096;
@@ -43,6 +48,8 @@ fn main() {
     let mut pc = PROGRAM_OFFSET;
     let mut sp = 0_u8;
     let mut stack: [usize; 16] = [0; 16];
+
+    load_font(&mut memory);
 
     let args: Vec<String> = env::args().collect();
     let rom_path = &args[1];
@@ -225,6 +232,10 @@ fn main() {
                     let value = (index + registers[X as usize] as usize) & 0xfff;
                     registers[0xf] = (value < index).into();
                     index = value;
+                }
+
+                0x29 => {
+                    index = get_char_address(registers[X as usize]);
                 }
 
                 0x33 => {
