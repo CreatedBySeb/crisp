@@ -132,7 +132,9 @@ fn main() {
             }
 
             0x7 => {
-                registers[X as usize] += bytes[1];
+                let (new_value, overflow) = registers[X as usize].overflowing_add(bytes[1]);
+                registers[X as usize] = new_value;
+                registers[0xf] = overflow.into();
             }
 
             0x9 => {
