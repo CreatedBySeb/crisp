@@ -41,6 +41,8 @@ fn main() {
     let mut registers: [u8; 16] = [0; 16];
     let mut index: usize = 0;
     let mut pc = PROGRAM_OFFSET;
+    let mut sp = 0_u8;
+    let mut stack: [usize; 16] = [0; 16];
 
     let args: Vec<String> = env::args().collect();
     let rom_path = &args[1];
@@ -90,13 +92,19 @@ fn main() {
                 if bytes[1] == 0xe0 {
                     framebuffer.fill(0x0);
                 } else if bytes[1] == 0xee {
-                    unimplemented!("RET not implemented");
+                    sp -= 1;
+                    pc = stack[sp as usize];
                 } else {
                     println!("SYS calls are no-ops");
                 }
             }
 
-            0x1 => {
+            0x1 | 0x2 => {
+                if instruction == 0x2 {
+                    stack[sp as usize] = pc;
+                    sp += 1;
+                }
+
                 pc = (usize::from(X) << 8) + usize::from(bytes[1]);
                 advance = false;
             }
