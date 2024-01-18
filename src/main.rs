@@ -101,12 +101,36 @@ fn main() {
                 advance = false;
             }
 
+            0x3 => {
+                if registers[X as usize] == bytes[1] {
+                    pc += 2;
+                }
+            }
+
+            0x4 => {
+                if registers[X as usize] != bytes[1] {
+                    pc += 2;
+                }
+            }
+
+            0x5 => {
+                if registers[X as usize] == registers[Y as usize] {
+                    pc += 2;
+                }
+            }
+
             0x6 => {
                 registers[X as usize] = bytes[1];
             }
 
             0x7 => {
                 registers[X as usize] += bytes[1];
+            }
+
+            0x9 => {
+                if registers[X as usize] != registers[Y as usize] {
+                    pc += 2;
+                }
             }
 
             0xa => {
