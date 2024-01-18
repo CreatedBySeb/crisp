@@ -220,6 +220,37 @@ fn main() {
                 registers[0xf] = collision.into();
             }
 
+            0xf => match bytes[1] {
+                0x1e => {
+                    let value = (index + registers[X as usize] as usize) & 0xfff;
+                    registers[0xf] = (value < index).into();
+                    index = value;
+                }
+
+                0x33 => {
+                    let value = registers[X as usize];
+                    memory[index] = value / 100;
+                    memory[index + 1] = (value % 100) / 10;
+                    memory[index + 2] = value % 10;
+                }
+
+                0x55 => {
+                    for i in 0..=X as usize {
+                        memory[index + i] = registers[i];
+                    }
+                }
+
+                0x65 => {
+                    for i in 0..=X as usize {
+                        registers[i] = memory[index + i];
+                    }
+                }
+
+                _ => {
+                    panic!("Sub-instruction is invalid ({:02x})", bytes[1]);
+                }
+            },
+
             _ => {
                 unimplemented!("Instruction {:x} not implemented", instruction);
             }
