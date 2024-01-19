@@ -5,6 +5,7 @@ mod font;
 use getrandom::getrandom;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::keyboard::Scancode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use std::env;
@@ -23,6 +24,25 @@ const SCREEN_WIDTH: u8 = 64;
 const SCALING_FACTOR: u8 = 10;
 const PIXEL_OFF: Color = Color::RGB(0, 0, 0);
 const PIXEL_ON: Color = Color::RGB(255, 255, 255);
+
+const KEYS: [Scancode; 16] = [
+    Scancode::X,
+    Scancode::Num1,
+    Scancode::Num2,
+    Scancode::Num3,
+    Scancode::Q,
+    Scancode::W,
+    Scancode::E,
+    Scancode::A,
+    Scancode::S,
+    Scancode::D,
+    Scancode::Z,
+    Scancode::C,
+    Scancode::Num4,
+    Scancode::R,
+    Scancode::F,
+    Scancode::V,
+];
 
 fn read_rom(memory: &mut [u8; MEMORY_SIZE], rom_path: &String) {
     let contents = fs::read(rom_path).unwrap();
@@ -76,8 +96,11 @@ fn main() {
     canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut key_states = 0_u16;
 
     'running: loop {
+        let mut keys_pressed = 0_u16;
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -85,6 +108,34 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+
+                Event::KeyDown {
+                    scancode: Some(code),
+                    repeat: false,
+                    ..
+                } => match KEYS.iter().position(|key| *key == code) {
+                    Some(key) => {
+                        let mask = 1 << key;
+                        key_states ^= mask;
+                        keys_pressed ^= mask;
+                    }
+
+                    None => {}
+                },
+
+                Event::KeyUp {
+                    scancode: Some(code),
+                    repeat: false,
+                    ..
+                } => match KEYS.iter().position(|key| *key == code) {
+                    Some(key) => {
+                        let mask = !(1 << key);
+                        key_states &= mask;
+                    }
+
+                    None => {}
+                },
+
                 _ => {}
             }
         }
@@ -234,7 +285,32 @@ fn main() {
                 registers[0xf] = collision.into();
             }
 
+            0xe => {
+                let mut value = (key_states & (1 << registers[X as usize])) != 0;
+
+                if bytes[1] == 0xa1 {
+                    value = !value;
+                } else if bytes[1] != 0x9e {
+                    println!("Invalid key mode {:02x}", bytes[1]);
+                    return;
+                }
+
+                if value {
+                    pc += 2;
+                }
+            }
+
             0xf => match bytes[1] {
+                0x0a => {
+                    if keys_pressed == 0 {
+                        advance = false;
+                    } else {
+                        registers[X as usize] = (0..16_u8)
+                            .find(|key| (keys_pressed & (1 << key)) != 0)
+                            .unwrap();
+                    }
+                }
+
                 0x1e => {
                     let value = (index + registers[X as usize] as usize) & 0xfff;
                     registers[0xf] = (value < index).into();
