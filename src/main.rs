@@ -1,7 +1,9 @@
 extern crate sdl2;
 
+mod audio;
 mod font;
 
+use audio::get_audio_device;
 use getrandom::getrandom;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -11,6 +13,7 @@ use sdl2::rect::Rect;
 use std::env;
 use std::fs;
 use std::time::Duration;
+use std::time::Instant;
 
 use crate::font::get_char_address;
 use crate::font::load_font;
@@ -24,6 +27,7 @@ const SCREEN_WIDTH: u8 = 64;
 const SCALING_FACTOR: u8 = 10;
 const PIXEL_OFF: Color = Color::RGB(0, 0, 0);
 const PIXEL_ON: Color = Color::RGB(255, 255, 255);
+const TIMER_FREQ: u32 = 60;
 
 const KEYS: [Scancode; 16] = [
     Scancode::X,
@@ -66,9 +70,13 @@ fn main() {
     let mut framebuffer: [u64; SCREEN_HEIGHT as usize] = [0; SCREEN_HEIGHT as usize];
     let mut registers: [u8; 16] = [0; 16];
     let mut index: usize = 0;
+    let mut delay_timer = 0_u8;
+    let mut sound_timer = 0_u8;
     let mut pc = PROGRAM_OFFSET;
     let mut sp = 0_u8;
     let mut stack: [usize; 16] = [0; 16];
+    let mut last_tick = Instant::now();
+    let tick_interval = Duration::new(0, 1_000_000_000u32 / TIMER_FREQ);
 
     load_font(&mut memory);
 
@@ -78,6 +86,7 @@ fn main() {
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let audio_subsystem = sdl_context.audio().unwrap();
 
     let window = video_subsystem
         .window(
@@ -94,6 +103,8 @@ fn main() {
     canvas.set_draw_color(PIXEL_OFF);
     canvas.clear();
     canvas.present();
+
+    let audio_device = get_audio_device(audio_subsystem);
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut key_states = 0_u16;
@@ -262,6 +273,11 @@ fn main() {
                 index = (usize::from(X) << 8) + usize::from(bytes[1]);
             }
 
+            0xb => {
+                pc = (usize::from(X) << 8) + usize::from(bytes[1]) + registers[0] as usize;
+                advance = false;
+            }
+
             0xc => {
                 let mut value: [u8; 1] = [0];
                 getrandom(&mut value).ok();
@@ -301,6 +317,10 @@ fn main() {
             }
 
             0xf => match bytes[1] {
+                0x07 => {
+                    registers[X as usize] = delay_timer;
+                }
+
                 0x0a => {
                     if keys_pressed == 0 {
                         advance = false;
@@ -308,6 +328,18 @@ fn main() {
                         registers[X as usize] = (0..16_u8)
                             .find(|key| (keys_pressed & (1 << key)) != 0)
                             .unwrap();
+                    }
+                }
+
+                0x15 => {
+                    delay_timer = registers[X as usize];
+                }
+
+                0x18 => {
+                    sound_timer = registers[X as usize];
+
+                    if sound_timer != 0 {
+                        audio_device.resume();
                     }
                 }
 
@@ -352,6 +384,22 @@ fn main() {
 
         if advance {
             pc += 2;
+        }
+
+        if last_tick.elapsed() >= tick_interval {
+            if delay_timer != 0 {
+                delay_timer -= 1;
+            }
+
+            if sound_timer != 0 {
+                sound_timer -= 1;
+
+                if sound_timer == 0 {
+                    audio_device.pause();
+                }
+            }
+
+            last_tick = Instant::now();
         }
 
         canvas.set_draw_color(PIXEL_OFF);
