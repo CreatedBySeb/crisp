@@ -292,6 +292,10 @@ fn main() {
                 let mut collision: bool = false;
 
                 for i in 0..N as usize {
+                    if (draw_y as usize + i) > 31 {
+                        break;
+                    }
+
                     let mut row = u64::from(sprite[i]) << 56;
                     row = row.rotate_right(draw_x.into());
                     collision |= (framebuffer[draw_y + i] & row) != 0;
